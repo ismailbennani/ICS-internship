@@ -1,0 +1,16 @@
+\centering\smallSize
+\caption{Stable (left) and unstable (right) marriage}
+
+\vspace{-\baselineskip}
+
+\begin{tikzpicture}[scale=.6]
+  \node (10)                        {\color{TUMOrange}\hugeSize\xmark};
+  \node (11) [below=0cm of 10]      {$({\color{TUMGruen} a1}, {\color{TUMBlauMittel} b1})$};
+  \node (12) [below=0cm of 11]      {$({\color{TUMBlauMittel} a2}, {\color{TUMElfenbein} b2})$};
+
+  \node (20) [right=2cm of 10]      {\color{TUMGruen}\hugeSize\cmark};
+  \node (21) [below=0cm of 20]      {$({\color{TUMBlauMittel} a2}, {\color{TUMBlauMittel} b1})$};
+
+  \path[->]
+    (11) edge (21);
+\end{tikzpicture}

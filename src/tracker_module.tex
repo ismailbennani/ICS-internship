@@ -1,0 +1,49 @@
+\centering{
+  \begin{tikzpicture}
+    [node distance=2.5cm,
+     plain/.style={},
+     node/.style={draw, rectangle, outer sep=.1cm, inner sep=.5cm},
+     topic/.style={draw, dashed, ellipse, outer sep=.1cm},
+     service/.style={draw, dotted, rectangle, outer sep=.1cm, inner sep=.5cm},
+     picture/.style={}]
+
+    \node[topic]   (t_0)                    {/recognition};
+    \node[plain]   (p_0) [above=0cm of t_0] {3D points};
+    \node[node]    (n_0) [below of=t_0]     {\begin{tabular}{c}person\_manager\\\smallSize Stable marriage\end{tabular}};
+    \node[service] (s_0) [below left=-2.8cm and 2cm of n_0]  {
+    \begin{tikzpicture}[every node/.style={minimum size=0cm, outer sep=.1cm, inner sep=.1cm},
+                        small_node/.style={minimum size=0cm, outer sep=0cm, inner sep=0cm}]
+      \node (0) {election\_server};
+
+      \node             (10) [below=0cm of 0]   {\smallSize RGB images};
+      \node             (11) [below=.5cm of 10] {\smallSize Feature extractor};
+      \node[small_node] (12) [below=0cm of 11]  {\smallSize \textbf{SURF, COLOR, LOMO}\cite{2014arXiv1406.4216L}};
+      \node             (13) [below=.5cm of 12] {\smallSize Classifier};
+      \node[small_node] (14) [below=0cm of 13]  {\smallSize \textbf{SVM}};
+
+      \draw[->]
+        (10) edge (11)
+        (12) edge (13);
+
+    \end{tikzpicture}
+    };
+
+    \node[topic]   (t_1) [below of=n_0]     {/tracking};
+    \node[plain]   (p_0) [below=0cm of t_1] {3D point};
+
+    \draw[->]
+      (t_0) edge (n_0)
+      (n_0) edge (t_1);
+
+    \draw [<->]
+      (n_0) edge (n_0-|s_0.east);
+
+    \begin{customlegend}[legend entries={node, topic, service},
+                         legend style={at={(-8,.5)},anchor=center}]
+      \addlegendimage{black, area legend}
+      \addlegendimage{black, area legend, dashed}
+      \addlegendimage{black, area legend, dotted}
+    \end{customlegend}
+
+  \end{tikzpicture}
+}

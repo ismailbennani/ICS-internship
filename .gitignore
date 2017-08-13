@@ -1,3 +1,16 @@
+# Tex files
+
+src/*.log
+src/*.aux
+src/*.bbl
+src/*.blg
+src/*.fdb_latexmk
+src/*.fls
+src/*.tcp
+src/*.toc
+src/*.tps
+src/*~
+
 # Windows image file caches
 Thumbs.db
 ehthumbs.db

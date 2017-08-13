@@ -1,0 +1,388 @@
+\documentclass[a4paper, twocolumn]{article}
+\usepackage{dblfloatfix}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage[T1]{fontenc}
+\usepackage{color}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{placeins}
+\usepackage[toc,page]{appendix}
+\usepackage{tikz}
+\usetikzlibrary{positioning,shapes}
+\usepackage{pgfplots}
+\usepackage[font=small,labelfont=bf,tableposition=top]{caption}
+\usepackage{cuted}
+
+%%%%%%%%%%% Numerotation
+\renewcommand{\thesection}{\Roman{section}.}
+\renewcommand{\thesubsection}{\Roman{section}.\arabic{subsection}.}
+\renewcommand{\thesubsubsection}{\Roman{section}.\arabic{subsection}.\alph{subsubsection}.}
+%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%% Sizes
+\newcommand{\changeSize}[1]{\fontsize{#1pt}{7.2}\selectfont}
+\newcommand{\tinySize}{\changeSize{8}}
+\newcommand{\smallSize}{\changeSize{12}}
+\newcommand{\normalSize}{\changeSize{16}}
+\newcommand{\bigSize}{\changeSize{22}}
+\newcommand{\hugeSize}{\changeSize{30}}
+%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%% Colors
+\definecolor{DiagramBlue}{HTML}{00B4E9}
+\definecolor{DiagramOrange}{HTML}{F8CA37}
+%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%% Itemize bullet-point
+\renewcommand\labelitemi{--}
+%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%% Tikz legend
+% argument #1: any options
+\newenvironment{customlegend}[1][]{%
+    \begingroup
+    % inits/clears the lists (which might be populated from previous
+    % axes):
+    \csname pgfplots@init@cleared@structures\endcsname
+    \pgfplotsset{#1}%
+}{%
+    % draws the legend:
+    \csname pgfplots@createlegend\endcsname
+    \endgroup
+}%
+%%%%%%%%%%%%%%%%%%%%%%
+
+% makes \addlegendimage available (typically only available within an
+% axis environment):
+\def\addlegendimage{\csname pgfplots@addlegendimage\endcsname}
+
+\title{Object Recognition and People Tracking in a home environment}
+\author{Ismail Lahkim Bennani}
+
+\date{\today}
+
+
+\begin{document}
+    \twocolumn[{\begin{@twocolumnfalse}
+		\maketitle
+        \tableofcontents
+
+        \vspace{2em}
+	\end{@twocolumnfalse}}]
+
+    \section*{Introduction}
+    
+    
+
+    \section{Challenge 1: Storing groceries}
+
+        This test focuses on the detection and recognition of objects and their features, as well as object manipulation. This is the scenario as described by the rulebook:\\
+
+    Setup:
+    \begin{enumerate}
+    	\item \textbf{Location:} One of the bookcases or cupboards in the apartment is used for this test, one where a table is near or can be put.
+    	\item \textbf{Start position:} The robot will start between the cupboard and the table in a random orientation, but facing towards the Cupboard.
+    	.
+    	\item \textbf{Cupboard:} The cupboard has 5 shelves between 0.30m and 1.80m from the ground and contains several objects.
+    	\begin{itemize}
+    	 	\item \textbf{Door:} The cupboard has a single door, which is closed initially.
+    	 	This door encloses some of the objects, covering up to one half of the cupboard (e.g. the left or bottom half), as indicated by the hatched area in the image.
+    	\end{itemize}
+    	\item \textbf{Table:} A table near to the Cupboard has 10 objects. If not all fit the on the table, they will be added during the test. The maximum distance between the Table and the Cupboard is 2m.
+    	\item \textbf{Objects:} Objects on the Cupboard and on the Table can be known, alike, or unknown. Also, there will be more than one object in each shelf.
+    \end{enumerate}
+
+    Task:
+    \begin{enumerate}
+        \item \textbf{Opening door:} The robot starts opening the Cupboard's door. If the robot is unable to open the door, it may ask the Referee to do it instead.
+    	\item \textbf{Cupboard inspection:} The robot inspects the cupboard locating and categorizing existing groceries.
+    	\item \textbf{Finding the table:} The turns around and locates the table.
+    	\item \textbf{Table inspection:} The robot approaches the table starts analyzing the newly bought groceries (i.e. objects).
+    	\item \textbf{Moving objects:} The robot chooses which object to move first from the Table to the Cupboard, allocating similar objects all together.
+    	\begin{itemize}
+    		\item Objects of the same type (i.e. identical known objects or akin alike objects) must be placed one next to the other.
+    		\item If the Cupboard has no object of the same type, then objects must be grouped by category (e.g. drinks with drinks, snacks with snacks, etc)
+    		\item If the Cupboard has no similar object, the robot must clearly state its decision on how to solve the problem. For instance, the robot can define a place for the newly found Category (e.g. Food was found but there is no other food in the cupboard), or group all new objects together (e.g. placing all Unknown objects together).
+    	\end{itemize}
+
+    	\textbf{Note:} Either before or after grasping an object the robot may announce the name of the object found.
+    	\item \textbf{Repeat:} This repeats until the time is up or all groceries are stored.
+    \end{enumerate}
+
+    For this challenge I worked on the object recognition programs.
+
+    \subsection{Object recognition}
+
+    The core component of the perception module is the one used for object recognition. We do that by using two complementary approaches: a deep convolutional network called YOLO\cite{redmon2016yolo9000} and a clustering of the objects based on our depth image.
+
+  YOLO is powerful at discriminating between a wide range of objects given a proper dataset while the depth-based approach doesn't need any training.
+
+  The combination of these two methods give use a robust way of finding  known and unknown objects in an RGB-D image. We can then use the 2D information we get from the recognition to find the location and size of the objects in the real world.
+
+    \subsubsection{YOLO}
+
+    YOLO (and more specifically YOLOv2) is considered as one of the most performing neural network for object recognition. It was used by 12 out of 15 teams in RoboCup@Home2017 and by more than half of the teams in all the RoboCup competitions. It takes an image as input and outputs labeled bounding boxes corresponding to the recognized objects (see Fig. \ref{YOLO_rgb})
+
+    \begin{figure}[!b]
+        \includegraphics[width=\columnwidth]{../img/yolo_table.jpg}
+        \caption{YOLO predictions}
+        \label{YOLO_rgb}
+    \end{figure}
+
+    We decided to implement our perception module in python but YOLO has been implemented by it's author in C. I found several other implementations in python using either caffe or tensorflow but none of them was as fast as the original version. The C version was 5 to 10 times faster than the others, so I decided to create a kind of bridge between that and the rest of the code. Concretely, the python class I created spawns a new process to run YOLO and communicates with it through pipes.
+
+    I used a Nvidia GTX 1060 for my tests, the original YOLO can process an image in 100 to 150 milliseconds while the python class I use does it in 110 to 180 milliseconds.
+
+    However, this approach has two major problems. One of our biggest constraints was processing power: our robot had no graphics card so we couldn't use it to run a deep neural network. We had to use an external computer mounted on the robot to do our computations (see Fig. ...). At first we wanted to build a desktop-like computer for this purpose but we realised that it would be too difficult to cool it in such a small space, and most importantly that it would be nearly impossible to power it. We were not allowed by the company that lent us the robot to use its batteries to power anything else than the robots and we didn't have enough room to put a battery big enough to power a computer powerful enough for our purposes without using custom components. We decided to use a laptop computer and the most powerful we had was using an Nvidia GTX 1060.
+
+    The second major problem is that YOLO is not able to recognize objects that were not part of the training dataset.
+
+    \subsubsection{Depth clusters}
+
+    To solve the unknown object problem, we decided to use the depth point cloud that we got from our depth camera to recognize every potential object in our field of view.
+
+    To do so we start by keeping the points in front of us and by removing all the big planar components from our point cloud, that corresponds to the floor, the walls, the tables etc.. Then we cluster the remaining points by Euclidian distance. Two points are part of the same cluster if they are close enough to each other (see Fig. \ref{pcl_clust}). Finally we compute the 2D projection of the cluster position on the RGB image to get a bounding box of the unknown object (see Fig. \ref{rgb_clust}).
+
+    \begin{figure}
+        \includegraphics[width=\columnwidth]{../img/table_pcl.jpg}
+        \includegraphics[width=\columnwidth]{../img/cluster_obj_pcl.jpg}
+        \caption{Point cloud (top) and object clusters on the table (bottom)}
+        \label{pcl_clust}
+    \end{figure}
+
+    \begin{figure}
+        \includegraphics[width=\columnwidth]{../img/cluster_obj_rgb.jpg}
+        \caption{3D clusters projected to the 2D image as unknown objects}
+        \label{rgb_clust}
+    \end{figure}
+
+    In practice, we could only use this method to find the objects on a table when we were looking at the table. When we were looking at the shelf for example, we had too many wrong predictions: the rims of the shelf were unknown objects, some pieces of the wall were not big enough on our point cloud (because of partial occlusion of the wall by other objects) to be removed as big planes, so they were objects too. However, that was not a big issue since we only care about the unknown objects for grasping them, and in our scenario those objects are on the table.
+
+    With this method we find most of the objects on the scene, even those that YOLO recognizes. We need to merge the two approaches results together, to do so we compare each couple of predictions (one from YOLO, the other from the depth image) and we compute the intersection over union of the area of their bounding box. If the result is close enough to 1, it's the same detection (see Fig. \ref{recognition_rgb}).
+
+    \begin{figure}
+        \includegraphics[width=\columnwidth]{../img/summary_recognition.jpg}
+        \caption{YOLO predictions (Fig.\ref{YOLO_rgb}) and depth clusters (Fig.\ref{rgb_clust}) merged}
+        \label{recognition_rgb}
+    \end{figure}
+
+    This method was first intended to find the unknown objects in the challenge scenario, but we realised that we could also use it to enhance our recognition. I added an extra step to this approach: classification. Once we get the 2D bounding box in the RGB image, we compute a hue histogram of the object's image and we run it through an SVM to identify it (see Fig. ...).
+
+    \subsection{From 2D to 3D}
+
+    Once we have our 2D bounding boxes, we need to find the position of the objects in the world to be able to interact with them. We use the depth image for that (see Fig. \ref{depth_image}).
+
+    \begin{figure}[!b]
+        \includegraphics[width=\columnwidth]{../img/depth_image.jpg}
+        \caption{Depth image}
+        \label{depth_image}
+    \end{figure}
+
+    The depth image is a float32 matrice where each cell is the depth of the corresponding pixel with respect to the camera (located in the robot's head). Given a 2D bounding box, we crop the image, we compute a histogram of the depth values and we down sample it to 5cm wide bins, then we select the bin that contains the most points. This method is a lot more robust than taking a the depth of a single pixel in the bounding box (our first solution was to take the depth value of the pixel in the center of the bounding box). We can see in Fig. \ref{depth_image} that the leftmost cup is almost black in the depth image, a black pixel means that we don't have any depth value for that pixel and that happens a lot with transparent or semi-transparent objects.
+
+    We can also estimate the apparent size of an object with the informations we have. We compute the size ratio of the bounding box to the size of the image, then with the horizontal and vertical field of view of the camera we can compute the angular size of the object in the image with respect to the camera and we can find the actual size of the object thanks to it's depth relative to the camera. With this method we find the apparent width and height of the object, we cannot find its third dimension but we don't need it.
+
+    The size we compute is a rough approximation (I'm approximately 1.77m tall and the recognition gives me a height of approximately 1.50m) but we don't really need a high precision: the size is used to find what object is graspable based on the maximal width of our robot's gripper. For the actual grasp, the robot uses an artificial skin (developed by ICS, it has a proximity sensor amongst other sensors) to adjust the gripper's position and size to the object's actual size.
+
+    The final result of the recognition module (see appendix \ref{appendix:recognition_module}) is the label, position and size of each recognized object relative to a fixed coordinate frame (see Fig. \ref{recognition_result}).
+
+    \begin{figure}[!b]
+        \includegraphics[width=\columnwidth]{../img/recog_markers.jpg}
+        \caption{Recognition result}
+        \label{recognition_result}
+    \end{figure}
+
+    \subsection{Results}
+
+    Our method for solving the challenge is the following. Note that we had some time before the challenge to map the room and to set some predefined positions.
+    \begin{enumerate}
+        \item Go in front of the shelf
+        \item Ask the operator to open the door
+        \item Recognize the objects in the shelf for some frames and keep the stable recognitions (sometimes we have noise in the recognition)
+        \item Cluster the objects in the shelf based on their semantic class and their position
+        \item Compute available empty space next to each cluster
+        \item Go to the table
+        \item Recognize the objects in the table for some frames and keep the stable recognitions
+        \item Choose an object to grasp and grasp it: the choice is based on the object itself (a bottle is easier to grasp than a bowl), the object position (start with the closest ones) and the clusters found in the shelf (don't grasp an object if you don't know where to put it)
+        \item Go back to the shelf
+        \item Compute a proper placing position: the choice is based on the empty space computed before.
+        \item Place the object
+        \item Repeat from step 6 until there is no more object on the table
+    \end{enumerate}
+
+    The main problem we encountered during the competition was the time it took us to perform the tasks. We had 1:30 minutes to grasp the first object on the table, and it took us 1:35 minutes to do it, mainly because we lost too much time recognizing every object on the shelf (the shelf is too big to see it in one picture, we had to move our head several times, see Fig. \ref{shelf_recog}) and computing clusters and proper placing positions.
+
+    This problem was common to all the team, actually there is only one team that managed to grasp the object in the given time but they couldn't place it in the shelf, we managed to get the third place (out of 15) thanks to the objects we recognized on the shelf. The day after the challenge, we worked on reducing the delays (the 1:30 minute rules was not part of the original rulebook, it was added 1 hour before the actual challenge) and we managed to grasp and place 1 object in the given time.
+
+    \begin{figure}
+        \includegraphics[width=\columnwidth]{../img/yolo_shelf.png}
+        \caption{Shelf objects recognition}
+        \label{shelf_recog}
+    \end{figure}
+
+    \section{Challenge 2: Help me carry}
+
+    This test focuses on safe, robust navigation, people following and navigation in unknown environments. This is the scenario as described by the rulebook:\\
+
+    Setup:
+    \begin{enumerate}
+      \item \textbf{Location:} One of the arenas (apartment) and its surroundings. The apartment is in its normal state. Part of the test is performed outside the arena in a public space.
+      \item \textbf{Start:} The robot starts waiting inside the arena.
+      \item \textbf{Car:} The car is any landmark chosen (but \emph{not} announced) beforehand outside the arena. Several bags with groceries are located where the car is parked.
+      \item \textbf{Doors:} All doors in the apartment are initially open.
+      \item \textbf{Operator:} A \quotes{professional} operator is selected by the TC to act as the operator of the robot.
+      \item \textbf{Uncontrolled environment:} There are no restrictions on other people walking by or standing around throughout the complete task.
+    \end{enumerate}
+
+    Task:
+    \begin{enumerate}
+      \item \textbf{Start:} The robot starts at a designated starting position in the arena, and waits for the \textit{professional} operator. The operator steps in front of the robot and tells it to follow (e.g. by saying \quotes{follow me}). The team is \emph{not} allowed to instruct the operator.
+
+      \item \textbf{Memorizing the operator:} The robot has to memorize the operator. During this phase, the robot may instruct the operator to follow a certain setup procedure.
+
+      \item \textbf{Following the operator:} When the robot signals that it is ready to start, the operator starts walking --in a natural way-- towards the car. Upon arrival, the operator will indicate the robot when they have reached their destination as instructed by the robot (e.g. by saying \quotes{here is the car} or \quotes{stop following me}).
+
+      \item \textbf{Bring the groceries in} \\
+      The robot is asked to deliver a bag with groceries  to a specific location (e.g. \quotes{Take this bag to the kitchen table}).
+      \begin{enumerate}
+        \item \textbf{Bag pick-up:} The robots gets the bag. For this there are several options to achieve this:
+          \textbf{a)} Human puts bag in robot's hand,
+          \textbf{b)} robot picks up bag on floor,
+          \textbf{c)} Robot takes bag from operator's hand
+        \item \textbf{Bag delivery:} The robot delivers the bag to the instructed destination. It may place the bag on the floor or onto the placement location.\\
+
+        \item \textbf{Asking for help:} Close to the delivery location is another person. The robot must face at them and kindly ask them to help carrying groceries into the house.
+      \end{enumerate}
+
+        \item \textbf{Find a person:} After reaching the designated room, the robot needs to find a person (there is only one person in the room, the name is meaningless).
+      \end{enumerate}
+
+      \item \textbf{Memorizing the \emph{new} operator:} The robot has to memorize the operator that will help. During this phase, the robot may instruct the operator to follow a certain setup procedure.
+
+      \item \textbf{Guiding the operator:} When the robot signals that it is ready to start guiding, the robot guiding the operator to the car. The robot must clearly announce when the destination (the car) is reached.
+      \begin{itemize}[leftmargin=3cm]
+        \item \textbf{Closed door:} Along it's path to the car, the robot will find a closed door (most likely the entrance to the house) that will need to be opened to reach the destination.
+      \end{itemize}
+
+    \end{enumerate}
+
+    For this challenge I used the previous work to recognize people and I worked on the tracking programs.
+
+    \subsection{Tracker module}
+
+    Since our Object Recognition module is able to detect people as any other object, we use it as our people detector for the tracker. The deep neural network that we use is very good at finding people, it can even recognize the reflection of a person on a semi-reflective surface such as a monitor !
+
+    However, we want to do more than detection, we want to track. For that we need to match all the detections of people that we have between the frames. We do that by considering our problem as a stable marriage problem. In addition to that, we need to identify the people that we see as "<operator"> or "<not operator"> to solve the occlusion problem for example, or to detect that we don't see our operator anymore.
+    Our approach to solving this problem is to use feature descriptors such as hue histograms and SVMs.
+
+    \subsubsection{Stable marriage problem}
+
+    \paragraph{Definition} The stable marriage problem is the problem of finding a stable matching between two equally sized sets of elements given an ordering of preferences for each element.
+
+    A \textit{matching} between two sets $A$ and $B$ is a mapping from the elements from $A$ to the elements of $B$. A matching is \emph{not} stable if:
+    \begin{itemize}
+        \item There is an element $a$ of the first matched set which prefers some given element $b$ of the second matched set over the element to which A is already matched, and
+        \item $b$ also prefers A over the element to which $b$ is already matched.
+    \end{itemize}
+
+    In other words, a matching is stable if we cannot find two couples in $A \times B$ in which two of the elements would rather be together than with their respective partners.
+
+    \paragraph{Implementation} In our case, we want to match the people detections from frame $n-1$ to the people detections from frame $n$. Our elements are the detections and we use the 3D euclidian distance between the position of the people we detect (that we get thanks to the recognition module) to order the elements. The closer they are to each other, the more likely they correspond to the same person.
+
+    \begin{figure}
+        \centering
+        \begin{tikzpicture}
+          \node (00) {\includegraphics[width=\columnwidth]{../img/pred_bboxes.png}};
+          \node[rectangle, draw, minimum width=4cm, minimum height=2cm] (0) [below=0cm of 00] {};
+          \node[rectangle, draw, fill=DiagramBlue, minimum width=1cm, minimum height=.55cm] (1) [above left=-.85cm and -1.2cm of 0] {};
+          \node[rectangle, draw, fill=DiagramOrange, minimum width=1cm, minimum height=.55cm] (2) [above left=-1.7cm and -1.2cm of 0] {};
+          \node (3) [right=0cm of 1] {\tinySize past detections};
+          \node (4) [right=0cm of 2] {\tinySize current detections};
+        \end{tikzpicture}
+        \caption{Detections matching}
+        \label{pred_match}
+    \end{figure}
+
+    To solve this problem I used the Gale-Shapley algorithm \cite{10.2307/2312726} that always give a stable match with a quadratic complexity. In our case, the complexity is quadratic with respect to the number of past people detections that is small (even with a crowd of people we won't go higher than $n \approx 100$, ie $n^2 \approx 10000$ which is fairly small).
+
+    But the problem here if that our two sets of detections is not necesserally equally sized: what if someone appears or disappears in our new frame. To solve this, I made the previous algorithm stop whenever one of the two sets is exhausted. We are then left with one possibly non-empty set, if it is the past detections one, it means that the remaining people have disappeared, if it is the current detections one, it means that the remaining people have appeared.
+
+    Thanks to this algorithm we keep an environment of people that we see and we track them all from one frame to the other. Given the operator's detection at one frame, we can keep track of their position as long as there are people in our field of view under the assumption that those people don't move too much from one frame to the other. You can see the result of the algorithm on an example in Fig. \ref{pred_match}.
+
+    However, this is not enough. Our assumption is too strong, we get the detections at an approximative rate of 5 FPS, it is low enough for a person to get lost in a crowd, even if the person stays visible. And more importantly, we did not address one of the most difficult problem of tracking: occlusions. What if someone passes in front of our subject ? Well, with this method if at some point one person is fully occluded by the other (which means that the people detector only sees one person in the frame instead of two), the person in front would become our new operator, no matter if they are the right one or not.
+
+    \paragraph{Enhancement} Until now, the only parameter we took into account for tracking is the positions of our subjects with respect to the camera. To address the issue mentioned above, we decided to consider the movement of the subjects. Instead of using the position of the past detections to find a matching, we use a Kalman filters to estimate the next position of each subject given their previous positions. A Kalman filter is an algorithm that uses a series of measurements observed over time, containing statistical noise and other inaccuracies, and produces estimates of unknown variables (in our case, the 3D position of the person). We run the Gale-Shapley algorithm with these estimations, find the matching and correct each Kalman filter with the new position of the subject they are tracking. In addition to that, we added a lifespan to each person in our environment, this lifespan is set to some default value (typically 10 frames, ie. 2 seconds) each time the person is detected on the image, and decreased each time the person is not detected. Once it reaches 0, the person is considered lost and is deleted from the environment. When two people occlude each other in the RGB image, they have the same 2D projection but they don't have the same 3D position and more importantly they don't have the same trajectory. When we go from 2 detections on the image to one detection, the person that disappeared is not lost, it stays in the environment and we keep estimating their probable location with their Kalman filter until they reappear or until it is too late.\\
+
+    With this enhancement, we managed to have pretty good results in simple scenarios, with a fixed camera and a small number of people on screen (3 to 4 in our tests). But as soon as the camera starts moving, we get more noise in our images (especially the depth image) and the 3D positions that we measure are not as precise as they were.
+
+    \subsubsection{Election manager}
+    
+    \subsection{Results}
+
+    \section*{Conclusion}
+
+    \begin{figure}[!b]
+        \includegraphics[width=\columnwidth]{../img/certificate.jpg}
+        \caption{Best scientific poster certificate}
+        \label{certificate}
+    \end{figure}
+
+    A total of 15 teams competed our league : the RoboCup@Home2017 Open Plateform League. Most of them (if not all except us) were not on their first trial. We tried to solve 3 challenges out of the 4 challenges in stage I and we ended up ranked 3 out of 15 in one of them (Storing groceries, see section I). We worked for three months on this project and our final ranking was 12 out of 15. We got the first place for the poster presentation (see appendix \ref{appendix:poster}) in our league and we won the best scientific poster award, all leagues mixed up.
+
+    Our code is open-source and available on ... The result of my internship is the perception module. A part of it (the recognition on an RGB image and the election server) is a standalone python library. It is easy to use in a different project: I used it for doing object and people recognition with the Hololens (augmented reality glasses by Microsoft).
+
+    \begin{figure}[!t]
+        \includegraphics[width=\columnwidth]{../img/team.jpg}
+        \caption{Part of our team}
+        \label{team}
+    \end{figure}
+
+    \section*{Acknowledgments}
+
+    I would like to thank Dr. Pablo Lanillos for his expert advice and help throughout this difficult project, as well as Germ\'{a}n D\'{i}ez Valencia for his wonderful collaboration. You supported me greatly and were always willing to help. Thanks to Patrick Grzywok, Emilka Skurzy\'{n}ska and the rest of the team for their friendship in the lab. Finally, thanks to Dr. Karinne Ram\'{i}rez Amaro for her supervision and her encouragement. This project would not have been impossible without the support of TUM, PAL Robotics, TNG and our other sponsors.
+
+    \vfill
+
+    % ---------- R�f�rences
+
+	\pagebreak
+
+	\twocolumn[{\begin{@twocolumnfalse}
+		\bibliographystyle{plain}
+		\bibliography{report}
+	\end{@twocolumnfalse}}]
+
+    % ---------- Annexe
+    \appendixpageoff
+
+    \begin{appendices}
+        \centering\noindent
+
+        % Recognition module
+        \twocolumn[{\begin{@twocolumnfalse}
+            \section*{Appendices}
+            \subsection{Recognition module}
+            \resizebox{\textwidth}{!}{\input{recognition_module.tex}}
+            \label{appendix:recognition_module}
+        \end{@twocolumnfalse}}]
+
+        % Tracker module
+        \twocolumn[{\begin{@twocolumnfalse}
+            \subsection{Tracker module}
+            \resizebox{\textwidth}{!}{\input{tracker_module.tex}}
+            \label{appendix:tracker_module}
+        \end{@twocolumnfalse}}]
+        
+        % Poster
+        \twocolumn[{\begin{@twocolumnfalse}
+            \subsection{Poster}
+            \includegraphics[width=\textwidth]{poster.jpg}
+            \label{appendix:poster}
+        \end{@twocolumnfalse}}]
+
+    \end{appendices}
+
+\end{document}

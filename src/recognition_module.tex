@@ -1,0 +1,53 @@
+\centering{
+  \begin{tikzpicture}
+    [node distance=4cm,
+     plain/.style={},
+     node/.style={draw, rectangle, outer sep=.1cm, inner sep=.5cm},
+     topic/.style={draw, dashed, ellipse, outer sep=.1cm},
+     service/.style={draw, dashed, rectangle, outer sep=.1cm},
+     picture/.style={}]
+
+    \node[node] (n_0) {recognition\_server};
+    \node[node] (n_1) [above=.6cm of n_0] {YOLO\cite{redmon2016yolo9000}};
+    \node[topic] (t_0) [below of=n_0] {/recognition/bb2D};
+    \node[plain] (p_1) [right=0cm of t_0] {2D Bboxes};
+    \node[node] (n_2) [below of=t_0] {from2Dto3D};
+    \node[topic] (t_1) [below of=n_2] {/recognition};
+    \node[plain] (p_2) [right=0cm of t_1] {3D points};
+
+    \node[topic] (t_2) [left=1cm of n_0] {/recognition/bb2D/unlabeled};
+    \node[plain] (p_3) [above=0cm of t_2] {unlabeled 2D bounding boxes};
+    \node[node] (n_3) [left=1cm of t_2] {\begin{tabular}{c}classifier\\\smallSize(SURF, COLOR)\end{tabular}};
+    \node[node] (n_4) [left=1cm of n_3] {cluster\_objects};
+
+    \node[plain] (p_0) [above=.5cm of p_3] {sensors};
+
+    \node[picture] (pic_0) [below right=0cm and -6.5cm of n_3] {\includegraphics[width=7cm]{../img/cluster_objects.png}};
+    \node[picture] (pic_1) [right=0cm of pic_0] {\includegraphics[width=7cm]{../img/YOLO.png}};
+    \node[picture] (pic_2) [below right=0cm and -5cm of pic_0] {\includegraphics[width=10cm]{../img/recognition.png}};
+
+    \node[plain] (label_0) [above left=-1.5cm and -4.2cm of pic_0] {\small\color{white} cluster\_objects};
+    \node[plain] (label_1) [above left=-1.5cm and -2.0cm of pic_1] {\small\color{white} YOLO};
+    \node[plain] (label_2) [above left=-1.5cm and -5.0cm of pic_2] {\small\color{white} recognition\_server};
+
+    \draw [->]
+      (n_1) edge (n_0)
+      (n_0) edge (t_0)
+      (t_0) edge (n_2)
+      (n_2) edge (t_1)
+      (n_3) edge (t_2)
+      (t_2) edge (n_0)
+      (n_4) edge (n_3)
+      (p_0) edge (p_0-|n_1.west);
+
+    \draw [->, to path={-| (\tikztotarget)}]
+      (p_0) edge (n_4);
+
+    \begin{customlegend}[legend entries={nodes, topics},
+                         legend style={at={(5, 2.2)},anchor=center}]
+      \addlegendimage{black, area legend}
+      \addlegendimage{black, area legend, dashed}
+    \end{customlegend}
+
+  \end{tikzpicture}
+}
