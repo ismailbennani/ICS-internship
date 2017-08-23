@@ -275,7 +275,7 @@
 
     Since our Object Recognition module is able to detect people as any other object, we use it as our people detector for the tracker. The deep neural network that we use is very good at finding people, it can even recognize the reflection of a person on a semi-reflective surface such as a monitor !
 
-    However, we want to do more than detection, we want to track. For that we need to match all the detections of people that we have between the frames. We do that by considering our problem as a stable marriage problem. In addition to that, we need to identify the people that we see as "<operator"> or "<not operator"> to solve the occlusion problem for example, or to detect that we don't see our operator anymore.
+    However, we want to do more than detection, we want to track. For that we need to match all the detections of people that we have between the frames. We do that by considering our problem as a stable marriage problem. In addition to that, we need to identify the people that we see as "operator" or "not operator" to solve the occlusion problem for example, or to detect that we don't see our operator anymore.
     Our approach to solving this problem is to use feature descriptors such as hue histograms and SVMs.
 
     \subsubsection{Stable marriage problem}
@@ -320,7 +320,40 @@
 
     \subsubsection{Election manager}
     
+    Until now, the only information we used is the position of the detection in our world, which is basically what the depth camera gives us. To improve the result, we decided to use the RGB camera too: we try to use an SVM to recognize our operator amongst all the detections.
+    
+    \paragraph{Training set} At the very beginning of the challenge, we ask our operator to rotate in front of the robot so we can gather some positive samples. We require that there is no other person close to the robot in its field of view during that phase, to avoid any false positive (we typically gather 60 positive samples). Once it is done, we use some predefined samples that we gathered at our lab ourselves with the same camera as negative samples. Those negative samples are pictures of several people (6 different people) wearing different clothes (with different colors) under different light conditions (natural light, artificial light, different light intensity, different time of the day etc..). We pick a given amount of negative samples (typically twice the number of positive samples) randomly from those images.
+    
+    \paragraph{Feature descriptors} We wanted to use several feature descriptors to learn the operator: hue histograms are relevant in our case since the operator is not likely to change their clothes during the challenge but it is not robust enough since we don't know anything about the light condition throughout the challenge, so we decided to use SURF descriptors as well. 
+    
+    I tried to look into LOMO\cite{2014arXiv1406.4216L}, a feature descriptor for person re-identification, I implemented the feature extraction (and some auxiliary functions) in python (I used the matlab code provided by the authors as a base-line) but I didn't have enough time to test it properly so I didn't use it for the competition.
+    
+    \paragraph{Election} Once we have our dataset, we train several SVMs, one per feature descriptor. If the feature extractor does not output a fixed-length vector, we have to find another way to represent the data or else we cannot train the SVM. For SURF, we use the K-Mean algorithm to construct a bag of words with all the 64-dim vectors from the positive and negative set, and for each feature descriptor we compute the histogram of words (using K-Mean) which is a fixed-length vector (the size is the number of words, which is the number of clusters in K-Mean).
+    
+    Once we have our SVMs, for each new detection we compute the prediction of each SVM, which is a 1 or a 0 (operator or not operator) and the final result is the sum of all the predictions. We call this the election manager because each SVM approves or not one candidate and our goal is to elect the most wanted one as operator.
+    
+    The final result of the tracking module (see appendix \ref{appendix:tracker_module}) is the position of the operator at each frame. The tracking pipeline is quite fast but we receive the frames at 5 FPS from the recognition module so the actual update speed is around 5 Hz.
+    
     \subsection{Results}
+    
+    Our method to solving the challenge is the following.
+    
+    \begin{enumerate}
+        \item Detect the people you see, the closest person to the center of the frame (in front of the robot) is the operator
+        \item From now on, for each frame, run the stable marriage algorithm to keep track of the people we see. Each person has their own unique ID
+        \item Start learning phase, ask the operator to rotate and to move a little bit in front of the robot
+        \item While learning, detect the operator and save the detection as positive sample (we learn for a given amount of frame)
+        \item Train the SVMs
+        \item Start following, tell the operator you're ready to go
+        \item For each frame, after the environment have been updated, run the election manager on each detection
+        \begin{itemize}
+            \item If no operator was found (the election manager answered 0 for every detection), don't change the operator ID
+            \item Else, change the operator ID to the ID of the positive detection that is the closest to the previous operator's detection
+        \end{itemize}
+        \item If the operator ID is still in our environment of people we track (we still see the operator), output their position and start again from step 7. Else, we lost the operator, say that you lost the operator and stop.
+    \end{enumerate}
+    
+    The main problem we had was that the operator and the person that was chosen to occlude the operator during the following part were moving very slowly. Way too slowly compared to a "natural way" of walking. Once the operator was occluded, the robot continued to follow the Kalman filter's predictions for some frames, but the lifespan of the detection ended before we could see him again (the occlusion lasted for several second, and the occluding person was moving perpendicularly to the operator). We didn't expect them to be this slow, so our parameters were not adapted to the situation.
 
     \section*{Conclusion}
 
